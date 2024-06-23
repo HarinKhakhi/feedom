@@ -2,10 +2,10 @@ import os
 import shutil
 
 from dotenv import load_dotenv
-from fastapi import FastAPI, File, UploadFile, Response, HTTPException
+from fastapi import FastAPI, UploadFile, Response, HTTPException
+from fastapi import Query, File
 from fastapi.middleware.cors import CORSMiddleware
 from motor.motor_asyncio import AsyncIOMotorClient
-from pymongo import MongoClient
 
 from .utils import VideoProcessor
 
@@ -96,18 +96,49 @@ async def get_tags(limit: int = 10):
     results = await collection.aggregate(pipeline).to_list(length=None)
 
     # Convert the results to a dictionary
-    tag_counts = [f"{result['_id']}: {result['count']}" for result in results]
+    tag_counts = [f"{result['_id']}" for result in results]
     
     return tag_counts
 
 
+def parse_tag_weights(tag_weights_str: str) -> Dict[str, float]:
+    tag_weights = {}
+    for item in tag_weights_str.split(','):
+        tag, weight = item.split('=')
+        tag_weights[tag] = float(weight)
+    return tag_weights
+
+
 @app.get("/feed")
-async def get_feed(limit: int = 10):
-    feed_cursor = await collection.find({}, {"video_id": 1}).limit(limit).to_list(length=None)
+async def get_feed(tag_weights: str = Query(...), limit: int = 10):
+    # Parse the tag weights string into a dictionary
+    tag_weights_dict = parse_tag_weights(tag_weights)
+    
+    # Create a projection for the aggregation pipeline to calculate the relevance score
+    projection = {
+        "video_id": 1,
+        "tags": 1,
+        "relevance_score": {
+            "$sum": [
+                {"$cond": [{"$in": [tag, "$tags"]}, weight, 0]}
+                for tag, weight in tag_weights_dict.items()
+            ]
+        }
+    }
+    
+    # Aggregation pipeline to calculate relevance scores and sort by relevance
+    pipeline = [
+        {"$project": projection},
+        {"$sort": {"relevance_score": -1}},
+        {"$limit": limit}
+    ]
+    
+    feed_cursor = await collection.aggregate(pipeline).to_list(length=None)
     
     # Convert the cursor to a list of video_ids
     feed_list = [
         doc['video_id'] 
-    for doc in feed_cursor ]
+        for doc in feed_cursor
+    ]
     
     return feed_list
