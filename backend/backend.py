@@ -3,6 +3,7 @@ import shutil
 
 from dotenv import load_dotenv
 from fastapi import FastAPI, File, UploadFile
+from fastapi.middleware.cors import CORSMiddleware
 from pymongo import MongoClient
 
 from .utils import VideoProcessor
@@ -23,6 +24,21 @@ processor.load()
 
 # Fast API
 app = FastAPI()
+
+# Configure CORS
+origins = [
+    "http://localhost",
+    "http://localhost:5173",
+]
+
+# Adding Middlewares
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=origins,
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
 
 @app.post("/db/add")
 async def create_upload_video(file: UploadFile = File(...)):
@@ -70,7 +86,7 @@ async def get_tags(limit: int = 10):
     results = collection.aggregate(pipeline)
     
     # Convert the results to a dictionary
-    tag_counts = {result['_id']: result['count'] for result in results}
+    tag_counts = [f"{result['_id']}: {result['count']}" for result in results]
     
     return tag_counts
 
@@ -80,6 +96,9 @@ async def get_feed(limit: int = 10):
     feed_cursor = collection.find({}, {"video_id": 1}).limit(limit)
     
     # Convert the cursor to a list of video_ids
-    feed_list = [doc['video_id'] for doc in feed_cursor]
+    feed_list = [{
+        'filename': doc['video_id'],
+        'title': 'Placeholder' 
+    } for doc in feed_cursor]
     
     return feed_list
