@@ -6,9 +6,42 @@ from fastapi import FastAPI, File, UploadFile
 import pandas as pd
 import shutil
 import os
-    
+from openai import OpenAI
+import json
+from dotenv import load_dotenv
+import pymongo
+from pymongo import MongoClient
+from pymongo.server_api import ServerApi
+
+load_dotenv()
+
+import os
+
+
 app = FastAPI()
 
+client = OpenAI(
+  organization='org-FwPkHfz2zBsZt1qHLGhe0dZn',
+  project='Ucb-Ai-Hackathon-June2024 200',
+)
+
+MONGO_URI = os.environ.get("MONGO_URI")
+uri = MONGO_URI
+
+# Create a new client and connect to the server
+client = MongoClient(uri, server_api=ServerApi('1'))
+
+# Send a ping to confirm a successful connection
+try:
+    client.admin.command('ping')
+    print("Pinged your deployment. You successfully connected to MongoDB!")
+except Exception as e:
+    print(e)
+
+db = client["video_db"]
+collection = db["metadata"]
+
+    
 device = "cuda" if torch.cuda.is_available() else "cpu"
 
 # load pretrained processor, tokenizer, and model
@@ -44,7 +77,30 @@ def generate_caption_from_video(video_path):
     #print(caption)
     return caption
 
+def generate_tag_from_caption(caption):
+    client = OpenAI(api_key=os.environ.get("OPENAI_API_KEY"))
 
+
+    completion = client.chat.completions.create(
+    model="gpt-4o",
+    response_format={ "type": "json_object" },
+    messages=[
+        {"role": "system", "content": '''You are an expert tagging system for social media content. 
+        Your task is to generate list of relevant tags for the following video captions in following JSON format.
+        It should contain multiple tags for sentiment, multiple tags for targeted audience, and multiple tags for category if applicable. 
+        
+        {
+            "other_tags" : [All the tags generated for the video caption], 
+            "sentiment_tag" : "[Positive, Negative, Neutral, multiple of these]", 
+            "targeted_audience_tag" : "[Children, Adults, Teenagers, General, multiple of these]",
+            "category_tag" : "[Entertainment, News, Technology, Business, Science, Lifestyle, Health, Sports, Travel, Politics, Art, Culture, History, Other, multiple of these]"
+        }
+        '''},
+        {"role": "user", "content": caption}
+    ]
+    )
+    
+    return json.loads(completion.choices[0].message.content)
 
 @app.post("/uploadvideo/")
 async def create_upload_video(file: UploadFile = File(...)):
@@ -55,11 +111,14 @@ async def create_upload_video(file: UploadFile = File(...)):
     # Generate caption for the uploaded video
     caption = generate_caption_from_video(video_path)
     
-    csv_path = "captions.csv"
-    if not os.path.exists(csv_path):
-        pd.DataFrame(columns=["video_name", "caption"]).to_csv(csv_path, index=False)
+    tag = generate_tag_from_caption(caption)
     
-    new_row = pd.DataFrame([[file.filename, caption]], columns=["video_name", "caption"])
-    pd.concat([pd.read_csv(csv_path), new_row]).to_csv(csv_path, index=False)
+    collection.insert_one({
+        "video_id": file.filename,
+        "caption": caption,
+        "tag": tag
+    })
+    print("Inserted into database!")
     
-    return {"filename": file.filename, "caption": caption}
+    return {"filename": file.filename, "caption": caption, "tag": tag}
+    
