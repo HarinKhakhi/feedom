@@ -15,7 +15,7 @@ const App = () => {
     fetch(`${BACKEND_URL}/tags`)
       .then((response) => response.json())
       .then((data) => {
-        setTags(data.tags);
+        setTags(data);
       });
   }, []);
 
