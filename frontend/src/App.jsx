@@ -24,10 +24,7 @@ const App = () => {
       <div className="search">
         <SearchAppBar />
       </div>
-      <div className="tagselector">
-        <Typography variant="h4" component="h1" gutterBottom>
-          Tag Selector
-        </Typography>
+      <div className="tagselector" style={{ margin: "5px" }}>
         <TagSelector tags={tags} />
       </div>
       <div className="videoplayer">
