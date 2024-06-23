@@ -10,6 +10,7 @@ The user can personalize the feed according to their moods.
 
 ## System Diagram: Recommendation Algorithm
 
+![Recommendation Algorithm](assets/stage2_system_diagram.png)
 
 # Steps to run the application:
 
