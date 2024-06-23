@@ -55,3 +55,21 @@ async def create_upload_video(file: UploadFile = File(...)):
         "tags": all_tags
     }
     
+
+@app.get("/tags")
+async def get_tags(therehold: int = 10):
+    # Aggregation pipeline to unwind tags array and count occurrences
+    pipeline = [
+        {"$unwind": "$tags"},
+        {"$group": {"_id": "$tags", "count": {"$sum": 1}}},
+        {"$sort": {"count": -1}},
+        {"$limit": therehold}
+    ]
+    
+    # Execute the aggregation pipeline
+    results = collection.aggregate(pipeline)
+    
+    # Convert the results to a dictionary
+    tag_counts = {result['_id']: result['count'] for result in results}
+    
+    return tag_counts
