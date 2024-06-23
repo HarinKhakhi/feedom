@@ -2,7 +2,6 @@ import React, { useEffect, useState } from "react";
 import SearchAppBar from "./components/SearchAppBar.jsx";
 import VideoPlayer from "./components/VideoPlayer.jsx";
 import TagSelector from "./components/TagSelector.jsx";
-import { Container, Typography } from "@mui/material";
 
 import "./App.css";
 

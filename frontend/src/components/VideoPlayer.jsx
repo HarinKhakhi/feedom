@@ -1,37 +1,39 @@
 import React, { useEffect } from "react";
-import Box from "@mui/material/Box";
-import Card from "@mui/material/Card";
-import CardContent from "@mui/material/CardContent";
-import CardMedia from "@mui/material/CardMedia";
 import { motion, AnimatePresence } from "framer-motion";
 import Loader from "./Loader.jsx";
+import ReactPlayer from "react-player";
 
 const BACKEND_URL = "http://localhost:8000";
 
 const VideoPlayer = () => {
   const [videoIndex, setVideoIndex] = React.useState(-1);
-  const [videos, setVideos] = React.useState([]);
+  const [videoIds, setVideoIds] = React.useState([]);
+  const [videos, setVideos] = React.useState({});
   const [direction, setDirection] = React.useState(0);
 
   useEffect(() => {
     fetch(`${BACKEND_URL}/feed`)
       .then((response) => response.json())
       .then((data) => {
-        setVideos(data);
-        if (data.length > 0) {
-          setVideoIndex(0);
+        let URLs = {};
+        for (let videoId of data) {
+          URLs[videoId] = `videos/${videoId}`;
         }
-      });
+        setVideos(URLs);
+        setVideoIds(data);
+        setVideoIndex(0);
+      })
+      .catch((error) => console.error("Error fetching video IDs:", error));
   }, []);
 
-  const handleNextVideo = () => {
+  const handleNextVideo = async () => {
     setDirection(1);
-    if (videoIndex < videos.length - 1) {
+    if (videoIndex < videoIds.length - 1) {
       setVideoIndex(videoIndex + 1);
     }
   };
 
-  const handlePreviousVideo = () => {
+  const handlePreviousVideo = async () => {
     setDirection(-1);
     if (videoIndex > 0) {
       setVideoIndex(videoIndex - 1);
@@ -48,13 +50,12 @@ const VideoPlayer = () => {
     };
 
     window.addEventListener("keydown", handleKeyDown);
-
     return () => {
       window.removeEventListener("keydown", handleKeyDown);
     };
-  }, [handleNextVideo, handlePreviousVideo]);
+  }, [videoIndex, videoIds.length]);
 
-  if (videos.length === 0 || videoIndex === -1) {
+  if (videoIndex === -1 || videos[videoIds[videoIndex]] === undefined) {
     return <Loader message="Refining your feed..." />;
   }
 
@@ -74,8 +75,8 @@ const VideoPlayer = () => {
   };
 
   return (
-    <Box
-      sx={{
+    <div
+      style={{
         position: "relative",
         display: "flex",
         justifyContent: "center",
@@ -93,28 +94,25 @@ const VideoPlayer = () => {
           exit="exit"
           transition={{ type: "spring", stiffness: 300, damping: 30 }}
         >
-          <Card
-            sx={{
+          <div
+            style={{
               width: "400px",
               display: "flex",
               flexDirection: "column",
               alignItems: "center",
             }}
           >
-            <CardContent>
-              {videos[videoIndex].title} {videoIndex}
-            </CardContent>
-            <CardMedia
-              component="video"
-              controls
-              src={videos[videoIndex].video_id}
-              title={videos[videoIndex].title}
-              sx={{ height: 450 }}
+            <div>Placeholder Title: {videoIndex}</div>
+            <ReactPlayer
+              controls={true}
+              url={videos[videoIds[videoIndex]]}
+              width="100%"
+              height="100%"
             />
-          </Card>
+          </div>
         </motion.div>
       </AnimatePresence>
-    </Box>
+    </div>
   );
 };
 
