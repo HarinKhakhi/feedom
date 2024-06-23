@@ -1,6 +1,6 @@
 import os
 import shutil
-
+from typing import Dict, List
 from dotenv import load_dotenv
 from fastapi import FastAPI, UploadFile, Response, HTTPException
 from fastapi import Query, File
@@ -20,7 +20,7 @@ collection = db["metadata"]
 
 # Loding Video Processor
 processor = VideoProcessor()
-processor.load()
+# processor.load()
 
 # Fast API
 app = FastAPI()
@@ -76,11 +76,7 @@ async def get_video(video_id: str):
     if video is None:
         raise HTTPException(status_code=404, detail="Video not found")
     
-    video_path = os.path.join(os.environ.get('VIDEO_DB'), video['video_id'])
-    if not os.path.exists(video_path):
-        raise HTTPException(status_code=404, detail="Video file not found")
-    
-    return Response(content=open(video_path, "rb").read(), media_type="video/avi")    
+    return video
 
 
 @app.get("/tags")
@@ -109,15 +105,27 @@ def parse_tag_weights(tag_weights_str: str) -> Dict[str, float]:
     return tag_weights
 
 
+def get_user_profile(user_id: str):
+    # Dummy function to fetch user data
+    return {"user_id": user_id, "favorite_tags": {"music": 10, "travel": 5}}
+
 @app.get("/feed")
-async def get_feed(tag_weights: str = Query(...), limit: int = 10):
-    # Parse the tag weights string into a dictionary
-    tag_weights_dict = parse_tag_weights(tag_weights)
+async def get_feed(tag_weights: str = Query(default=''), limit: int = 10):
     
+    if tag_weights:
+        tag_weights_dict = parse_tag_weights(tag_weights)
+    else:
+        # Fetch user profile and use favorite tags as weights
+        user_profile = get_user_profile(10)
+        tag_weights_dict = user_profile['favorite_tags']
+        if not tag_weights_dict:
+            raise HTTPException(status_code=404, detail="No tag preferences found for the user")
+
     # Create a projection for the aggregation pipeline to calculate the relevance score
     projection = {
         "video_id": 1,
         "tags": 1,
+        "caption": 1,
         "relevance_score": {
             "$sum": [
                 {"$cond": [{"$in": [tag, "$tags"]}, weight, 0]}
@@ -137,7 +145,11 @@ async def get_feed(tag_weights: str = Query(...), limit: int = 10):
     
     # Convert the cursor to a list of video_ids
     feed_list = [
-        doc['video_id'] 
+        {
+            'video_id': doc['video_id'],
+            'caption': doc['caption'],
+            'tags': doc['tags'],
+        } 
         for doc in feed_cursor
     ]
     

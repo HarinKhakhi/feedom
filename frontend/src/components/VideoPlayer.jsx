@@ -7,7 +7,6 @@ const BACKEND_URL = "http://localhost:8000";
 
 const VideoPlayer = () => {
   const [videoIndex, setVideoIndex] = React.useState(-1);
-  const [videoIds, setVideoIds] = React.useState([]);
   const [videos, setVideos] = React.useState({});
   const [direction, setDirection] = React.useState(0);
 
@@ -15,12 +14,11 @@ const VideoPlayer = () => {
     fetch(`${BACKEND_URL}/feed`)
       .then((response) => response.json())
       .then((data) => {
-        let URLs = {};
-        for (let videoId of data) {
-          URLs[videoId] = `videos/${videoId}`;
+        for (let obj of data) {
+          obj.videoURL = "videos/" + obj.video_id;
         }
-        setVideos(URLs);
-        setVideoIds(data);
+
+        setVideos(data);
         setVideoIndex(0);
       })
       .catch((error) => console.error("Error fetching video IDs:", error));
@@ -28,7 +26,7 @@ const VideoPlayer = () => {
 
   const handleNextVideo = async () => {
     setDirection(1);
-    if (videoIndex < videoIds.length - 1) {
+    if (videoIndex < videos.length - 1) {
       setVideoIndex(videoIndex + 1);
     }
   };
@@ -53,9 +51,9 @@ const VideoPlayer = () => {
     return () => {
       window.removeEventListener("keydown", handleKeyDown);
     };
-  }, [videoIndex, videoIds.length]);
+  }, [videoIndex, videos.length]);
 
-  if (videoIndex === -1 || videos[videoIds[videoIndex]] === undefined) {
+  if (videoIndex === -1) {
     return <Loader message="Refining your feed..." />;
   }
 
@@ -100,15 +98,21 @@ const VideoPlayer = () => {
               display: "flex",
               flexDirection: "column",
               alignItems: "center",
+              marginTop: "5px",
             }}
           >
-            <div>Placeholder Title: {videoIndex}</div>
             <ReactPlayer
               controls={true}
-              url={videos[videoIds[videoIndex]]}
+              url={videos[videoIndex].videoURL}
               width="100%"
               height="100%"
             />
+            <div>{videos[videoIndex].caption}</div>
+            <ul>
+              {videos[videoIndex].tags.map((tag, ind) => (
+                <li key={ind}>{tag}</li>
+              ))}
+            </ul>
           </div>
         </motion.div>
       </AnimatePresence>
