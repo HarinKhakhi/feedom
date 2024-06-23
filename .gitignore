@@ -3,6 +3,7 @@ dataset/processed/
 training/
 venv/
 videos/
+frontend/node_modules/
 
 # Byte-compiled / optimized / DLL files
 __pycache__/
